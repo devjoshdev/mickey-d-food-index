@@ -6,22 +6,25 @@ import puppeteer from "puppeteer";
     const MCDONALDS_FULL_MENU = "https://www.mcdonalds.com/us/en-us/full-menu.html";
     const SIZES_LIST_SELECTOR = "ul.cmp-product-details-main__variations-sizes";
 
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({headless: false});
     const page = await browser.newPage();
 
     await page.goto(MCDONALDS_FULL_MENU, {waitUntil: "networkidle0"});
     const productPageLinks = await page.$$eval("a[href^='/us/en-us/product/']", (anchors => anchors.map(anchor => anchor.href)));
+    let otherSizesLinks = [];
 
-    for (let i = 0; i < productPageLinks.length; i++) {
+    for (let i = 0; i < 3; i++) {
         await page.goto(productPageLinks[i], {waitUntil: "networkidle0"});
         const foodNameAndCalories = await extractFoodNameAndCalories(page);
         console.table(foodNameAndCalories);
         const sizesToParse = await extractOtherSizeLinks(page, SIZES_LIST_SELECTOR);
-        for (let j = 0; j < sizesToParse.length; j++) {
-            console.log("links");
-            console.log(sizesToParse[j]);
-        }
-        if (i == 2) process.exit(0);
+        otherSizesLinks = [...otherSizesLinks, ...sizesToParse];
+    }
+
+    for (let i = 0; i < otherSizesLinks.length; i++) {
+        await page.goto(otherSizesLinks[i]);
+        const foodNameAndCalories = await extractFoodNameAndCalories(page);
+        console.table(foodNameAndCalories);
     }
 
     await browser.close();

@@ -4,23 +4,24 @@ import puppeteer from "puppeteer";
 
     const MCDONALDS_BASE_URL = "https://www.mcdonalds.com";
     const MCDONALDS_FULL_MENU = "https://www.mcdonalds.com/us/en-us/full-menu.html";
+    const SIZES_LIST_SELECTOR = "ul.cmp-product-details-main__variations-sizes";
 
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
 
     await page.goto(MCDONALDS_FULL_MENU, {waitUntil: "networkidle0"});
-    const foodLinkSelector = await page.$$("a[href^='/us/en-us/product/']");
-    // todo: implement extractOtherSizeLinks and use it to complete the logic
+    const productPageLinks = await page.$$eval("a[href^='/us/en-us/product/']", (anchors => anchors.map(anchor => anchor.href)));
 
-    for (let i = 0; i < foodLinkSelector.length; i++) {
-        const foodLink = await foodLinkSelector[i].evaluate(elem => elem.href);
-        await page.goto(foodLink, {waitUntil: "networkidle0"});
+    for (let i = 0; i < productPageLinks.length; i++) {
+        await page.goto(productPageLinks[i], {waitUntil: "networkidle0"});
         const foodNameAndCalories = await extractFoodNameAndCalories(page);
-        const sizesToParse = await extractOtherSizeLinks(page);
+        console.table(foodNameAndCalories);
+        const sizesToParse = await extractOtherSizeLinks(page, SIZES_LIST_SELECTOR);
         for (let j = 0; j < sizesToParse.length; j++) {
-
+            console.log("links");
+            console.log(sizesToParse[j]);
         }
-        process.exit(0);
+        if (i == 2) process.exit(0);
     }
 
     await browser.close();
@@ -32,11 +33,31 @@ async function extractFoodNameAndCalories(page) {
     const foodName = await foodNameSpan.evaluate(elem => elem.innerText);
     const calorieDivSelector = await page.$("div.cmp-product-details-main__sub-heading");
     const calories = await calorieDivSelector.evaluate(elem => {
-        console.log("here");
         const calorieSpan = elem.firstChild;
-        console.log("calorie span=>", calorieSpan);
-        return calorieSpan.innerText;
+        return calorieSpan.innerText.trim();
     });
     return {"foodName": foodName, "calories": calories};
     
+}
+
+// TODO: make sure to skip the currently selected one
+async function extractOtherSizeLinks(page, sizesSelector) {
+    let sizeLinks = [];
+    const sizesLinksList = await page.$(sizesSelector);
+    if (sizesLinksList) {
+        sizeLinks = sizesLinksList.$$eval("li", listItems => listItems.filter(li => !li.className.includes("--selected")).map(li => li.querySelector("a").href));
+    }
+    return sizeLinks;
+
+
+
+
+    // const sizesLinks = [];
+    // const sizesList = await page.$(sizesSelector);
+    // if (sizesList && sizesList.length > 0) {
+    //     for (let i = 0; i < sizesList.length; i++) {
+
+    //     }
+    // }
+    // return sizesLinks;
 }
